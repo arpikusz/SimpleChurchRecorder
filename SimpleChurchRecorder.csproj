@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ApplicationIcon>Resources\rec.ico</ApplicationIcon>
+    <Win32Icon>Resources\rec.ico</Win32Icon>
+  </PropertyGroup>
+
+  <!-- ensure icon is embedded as a resource -->
+  <ItemGroup>
+    <Resource Include="Resources\rec.ico" />
+  </ItemGroup>
+
+</Project>
