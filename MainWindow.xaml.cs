@@ -50,14 +50,14 @@ namespace SimpleChurchRecorder
             // Check command line args for autorecord option
             try
             {
-                var args = System.Environment.GetCommandLineArgs();
+                var args = Environment.GetCommandLineArgs();
                 if (args != null)
                 {
                     foreach (var a in args)
                     {
-                        if (string.Equals(a, "autorecord", System.StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(a, "--autorecord", System.StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(a, "/autorecord", System.StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(a, "autorecord", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(a, "--autorecord", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(a, "/autorecord", StringComparison.OrdinalIgnoreCase))
                         {
                             // start recording automatically
                             StartRecording();
