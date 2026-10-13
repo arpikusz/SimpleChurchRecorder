@@ -34,43 +34,62 @@ namespace SimpleChurchRecorder
 
             try
             {
-                try
-                {
-                    using var rk = Registry.CurrentUser.CreateSubKey("Software\\SimpleChurchRecorder");
-                    audioOutputPath = rk.GetValue("OutputPath", RegistryValueKind.String) as string ?? audioOutputPath;
-                }
-                catch
-                {
-                    // if registry write fails, surface error
-                    throw;
-                }
+                LoadInputDevices();
+                LoadDefaultOutputPath();
 
                 OutputPathBox.Text = audioOutputPath;
-
-                // ensure textbox is read-only by default
-                OutputPathBox.IsReadOnly = true;
-
-                // Enumerate audio input devices
-                int count = WaveInEvent.DeviceCount;
-                for (int i = 0; i < count; i++)
-                {
-                    var caps = WaveInEvent.GetCapabilities(i);
-                    InputDevicesCombo.Items.Add(caps.ProductName);
-                }
-
-                if (InputDevicesCombo.Items.Count > 0)
-                {
-                    // select default device (first)
-                    InputDevicesCombo.SelectedIndex = 0;
-                }
+                OutputPathBox.IsReadOnly = true; 
             }
             catch
             {
                 ok = false;
             }
 
-            StatusLabel.Text = ok ? "Ready!" : "Error!";
+            StatusLabel.Text = ok ? "Ready!" : "Error on startup!";
+
+            // Check command line args for autorecord option
+            try
+            {
+                var args = System.Environment.GetCommandLineArgs();
+                if (args != null)
+                {
+                    foreach (var a in args)
+                    {
+                        if (string.Equals(a, "autorecord", System.StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(a, "--autorecord", System.StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(a, "/autorecord", System.StringComparison.OrdinalIgnoreCase))
+                        {
+                            // start recording automatically
+                            StartRecording();
+                            break;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignore errors when checking args
+            }
         }
+
+        private void LoadInputDevices()
+        {
+            // Enumerate audio input devices
+            int count = WaveInEvent.DeviceCount;
+            for (int i = 0; i < count; i++)
+            {
+                var caps = WaveInEvent.GetCapabilities(i);
+                InputDevicesCombo.Items.Add(caps.ProductName);
+            }
+
+            if (InputDevicesCombo.Items.Count > 0)
+            {
+                // select default device (first)
+                InputDevicesCombo.SelectedIndex = 0;
+            }
+        }
+
+        
 
         private void EditOutputButton_Click(object? sender, RoutedEventArgs e)
         {
@@ -127,55 +146,13 @@ namespace SimpleChurchRecorder
         {
             if (waveIn == null)
             {
-                // Start recording
-                try
-                {
-                    if (InputDevicesCombo.SelectedIndex < 0)
-                    {
-                        StatusLabel.Text = "Error!";
-                        return;
-                    }
-
-                    // Ensure folder exists
-                    if (!Directory.Exists(audioOutputPath))
-                    {
-                        Directory.CreateDirectory(audioOutputPath);
-                    }
-
-                    string filename = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".wav";
-                    string path = Path.Combine(audioOutputPath, filename);
-
-                    waveIn = new WaveInEvent();
-                    waveIn.DeviceNumber = InputDevicesCombo.SelectedIndex;
-                    waveIn.WaveFormat = new WaveFormat(44100, 2); // 44k stereo
-                    writer = new WaveFileWriter(path, waveIn.WaveFormat);
-                    waveIn.DataAvailable += WaveIn_DataAvailable;
-                    waveIn.RecordingStopped += WaveIn_RecordingStopped;
-                    waveIn.StartRecording();
-
-                    // update UI: change label and icon
-                    if (originalBackground == null) originalBackground = this.Background;
-                    if (originalStatusForeground == null) originalStatusForeground = StatusLabel.Foreground;
-                    if (originalRecordLabelForeground == null) originalRecordLabelForeground = RecordLabel.Foreground;
-
-                    RecordLabel.Text = "STOP";
-                    this.Background = Brushes.Red;
-                    StatusLabel.Foreground = Brushes.White;
-                    RecordLabel.Foreground = Brushes.White;
-                    StatusLabel.Text = "Recording...";
-                }
-                catch
-                {
-                    StatusLabel.Text = "Error!";
-                }
+                StartRecording();
             }
             else
             {
-                // Stop recording
                 try
                 {
                     waveIn.StopRecording();
-                    // UI will be restored in RecordingStopped handler
                 }
                 catch
                 {
@@ -184,6 +161,51 @@ namespace SimpleChurchRecorder
                     RestoreUiAfterStop();
                     StatusLabel.Text = "Error!";
                 }
+            }
+        }
+
+        // Starts recording. Safe to call from startup (autorecord) or from the Record button.
+        private void StartRecording()
+        {
+            try
+            {
+                if (InputDevicesCombo.SelectedIndex < 0)
+                {
+                    StatusLabel.Text = "Error!";
+                    return;
+                }
+
+                // Ensure folder exists
+                if (!Directory.Exists(audioOutputPath))
+                {
+                    Directory.CreateDirectory(audioOutputPath);
+                }
+
+                string filename = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".wav";
+                string path = Path.Combine(audioOutputPath, filename);
+
+                waveIn = new WaveInEvent();
+                waveIn.DeviceNumber = InputDevicesCombo.SelectedIndex;
+                waveIn.WaveFormat = new WaveFormat(44100, 2); // 44k stereo
+                writer = new WaveFileWriter(path, waveIn.WaveFormat);
+                waveIn.DataAvailable += WaveIn_DataAvailable;
+                waveIn.RecordingStopped += WaveIn_RecordingStopped;
+                waveIn.StartRecording();
+
+                // update UI: change label and icon
+                if (originalBackground == null) originalBackground = this.Background;
+                if (originalStatusForeground == null) originalStatusForeground = StatusLabel.Foreground;
+                if (originalRecordLabelForeground == null) originalRecordLabelForeground = RecordLabel.Foreground;
+
+                RecordLabel.Text = "STOP";
+                this.Background = Brushes.Red;
+                StatusLabel.Foreground = Brushes.White;
+                RecordLabel.Foreground = Brushes.White;
+                StatusLabel.Text = "Recording...";
+            }
+            catch
+            {
+                StatusLabel.Text = "Error!";
             }
         }
 
@@ -242,6 +264,10 @@ namespace SimpleChurchRecorder
             if (originalRecordLabelForeground != null) RecordLabel.Foreground = originalRecordLabelForeground;
         }
 
-
+        private static void LoadDefaultOutputPath()
+        {
+            var rk = Registry.CurrentUser.CreateSubKey("Software\\SimpleChurchRecorder");
+            audioOutputPath = rk.GetValue("OutputPath", RegistryValueKind.String) as string ?? audioOutputPath;
+        }
     }
 }
